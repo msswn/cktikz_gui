@@ -1,5 +1,4 @@
 from canvas import *
-from shapes import shape
 
 root = Tk()
 root.geometry("1280x720")
@@ -10,9 +9,8 @@ sketch = Sketchpad(root, bg="white", cursor="circle")
 sketch.grid(column=0, row=0, sticky=(N, W, E, S))
 sketch.focus_set()
 sketch.config(cursor="none")
-# sketch.debug = True
 
-# draw gridlines!
+# drawing gridlines
 for i in range(1280//20):
     grid_color = '#f0f0f0' if i % 2 else '#d0d0d0'
     width = 1 if i % 2 else 1

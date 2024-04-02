@@ -5,8 +5,8 @@ from shapes import *
 
 # functionality left over to do
 # TODO: label (elements: labeled value, labeled voltage, labeled current, node voltage: values)
-# TODO: rotate (only applies to ground) / anchor (only applies to node voltages) same behavior in principle, single thing. in increments of 45 degrees.
 # TODO: print - if I want to save stuff whether as cktikz or editable circuits, It hink it would be nice to do a repr eval opposite thing / "isomoprhosim god dammint"
+# TODO: load functionality?
 
 class Sketchpad(Canvas):
     special = {'m':'move',
@@ -31,13 +31,30 @@ class Sketchpad(Canvas):
 
     def key_press(self, event):
         key_input = event.char
-        if key_input in self.special.keys():
+        if key_input in self.special:
             self.state = self.special[key_input]
-        elif key_input in element.shortcuts.keys() or key_input in node.shortcuts.keys():
+            self.rotate()
+        elif key_input in element.shortcuts or key_input in node.shortcuts:
             self.state = key_input
         else:
-            print(self.shapes)
+            self.print_latex()
             self.state = ' '
+
+    def print_latex(self):
+        print('\\begin{center}')
+        print('\\begin{circuitikz}')
+        for shape in self.shapes.values():
+            if not isinstance(shape, handle):
+                print(shape.str_latex(None))
+        print('\\end{circuitikz}')
+        print('\\end{center}')
+        print()
+
+    def rotate(self):
+        if self.state == 'rotate':
+            inrange_shape = self.shape_to_highlight
+            if isinstance(inrange_shape, node):
+               inrange_shape.rotate()
 
     def motion(self, event):
         cursor = self.get_cursor(event)
@@ -52,7 +69,7 @@ class Sketchpad(Canvas):
     def get_cursor(self, event):
         snap = self.grid_point(event)
 
-        exists = "cursor" in self.shapes.keys()
+        exists = "cursor" in self.shapes
         cursor = None
         if exists:
             cursor = self.shapes["cursor"]
@@ -62,11 +79,11 @@ class Sketchpad(Canvas):
             self.shapes["cursor"] = cursor
         return cursor
 
-    def closest_editable_shape(self, pt, thresh=20):
+    def closest_editable_shape(self, pt, thresh=29):
         distance, closest, new_distance = np.infty, None, np.infty
         for name, shape in self.shapes.items():
             if isinstance(shape, node):
-                new_distance = np.linalg.norm(pt - shape.loc)/2
+                new_distance = np.linalg.norm(pt - shape.loc)
             if isinstance(shape, element):
                 displ = pt - shape.st
                 seg = shape.ed - shape.st
@@ -143,16 +160,16 @@ class Sketchpad(Canvas):
         self.current_element = None
 
     def delete_shape(self, shape_name):
-        if shape_name in self.shapes.keys():
+        if shape_name in self.shapes:
             self.shapes[shape_name].erase()
             self.shapes.pop(shape_name)
 
     def add_node(self, pt):
-        if self.state in node.shortcuts.keys():
+        if self.state in node.shortcuts:
             shape_name = node.shortcuts[self.state]
             idx = 0
             idxed_name = shape_name + str(idx)
-            while idxed_name in self.shapes.keys():
+            while idxed_name in self.shapes:
                 idx += 1
                 idxed_name = shape_name + str(idx)
             new_shape = node(self, pt, self.state)
@@ -162,11 +179,11 @@ class Sketchpad(Canvas):
     def add_element(self,event):
         pt = self.grid_point(event)
         if self.current_element is None:
-            if self.state in element.shortcuts.keys():
+            if self.state in element.shortcuts:
                 shape_name = element.shortcuts[self.state]
                 idx = 0
                 idxed_name = shape_name + str(idx)
-                while idxed_name in self.shapes.keys():
+                while idxed_name in self.shapes:
                     idx += 1
                     idxed_name = shape_name + str(idx)
                 start_pt = self.shapes['held_cursor'].loc
