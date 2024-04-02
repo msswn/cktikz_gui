@@ -1,8 +1,8 @@
 # Circuitikz GUI using Tkinter
 
-Quick and dirty project for generating circuitikz LaTeX in a Tkinter GUI.
+Quick and dirty python project for generating circuitikz LaTeX in a Tkinter GUI.
 
-Place elements and nodes, then press space or any non-shortcut key to print out circuitikz latex to terminal window.
+To run, run python main.py. Place elements and nodes, then press space or any non-shortcut key to print out circuitikz latex to terminal window.
 
 Inspired by:
 
