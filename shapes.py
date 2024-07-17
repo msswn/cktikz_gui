@@ -5,7 +5,8 @@ class shape():
         self.drawing = []
         self.canvas = canvas
 
-    tf = lambda self, x: np.array([[1, 0], [0, -1]])@x # invert coords..
+    # this is needed because of canvas coordinates vs. latex coordinates
+    transform = lambda self, x: np.array([[1, 0], [0, -1]])@x # invert coords..
 
     def erase(self):
         for idx in self.drawing:
@@ -20,7 +21,8 @@ class element(shape):
                  'B':'depvsource',
                  'O':'depisource',
                  'w':'wire',
-                 'o':'open'}
+                 'o':'open',
+                 'd':'diode'}
     def __init__(self, canvas, start, end, shortcut):
         super().__init__(canvas)
         self.st = start 
@@ -55,7 +57,8 @@ class element(shape):
                  'B':'cV',
                  'O':'cI',
                  'w':'short',
-                 'o':'open'}
+                 'o':'open',
+                 'd':'diode'}
     label_str = {'r':'l=$\\si{\\ohm}$',
                  'c':'l=$\\si{\\farad}$',
                  'l':'l=$\\si{\\henry}$',
@@ -64,18 +67,29 @@ class element(shape):
                  'B':'',
                  'O':'',
                  'w':'',
-                 'o':'v=$$'}
+                 'o':'v=$$',
+                 'd':''}
     def str_latex(self,label_info):
-        start_coord = tuple(self.tf(self.st/40))
-        end_coord = tuple(self.tf(self.ed/40))
+        start_coord = tuple(self.transform(self.st/40))
+        end_coord = tuple(self.transform(self.ed/40))
         label_str = self.label_str[self.t]
         cktikz_str = self.latex_str[self.t]
         return f'\\draw{start_coord} to[{cktikz_str},{label_str}] {end_coord};'
 
+# to add a new node:
+# update shortcuts
+# update drawing
+# update latex_str list
+# update str_latex function
+
 class node(shape):
     shortcuts = {'g':'GND',
                  'a':'OPA',
-                 'v':'NV'}
+                 'v':'NV',
+                 'n':'NPN',
+                 'p':'PNP',
+                 'N':'PMOS',
+                 'P':'NMOS'}
 
     def __init__(self, canvas, location, shortcut):
         super().__init__(canvas)
@@ -85,10 +99,16 @@ class node(shape):
 
     def copy(self):
         new_node = node(self.canvas, self.loc, self.t)
+        new_node.angle = self.angle
         return new_node
 
     def update_location(self, location):
         self.loc = location
+
+    # TODO: finish this
+    def flip(self,along):
+        # along is a character, either 'X' or 'Y'
+        pass
 
     def rotate(self):
         if self.t != 'a':
@@ -99,67 +119,101 @@ class node(shape):
         c, s = np.cos(np.pi/4*angle), np.sin(np.pi/4*angle)
         return np.array([[c,-s],[s,c]])
 
+    def draw_x(self, loc, color):
+        ext1, ext2 = np.ones(2), np.array([-1, 1])
+        idx1 = self.canvas.create_line(*(loc+5*ext1), *(loc-5*ext1), fill=color, width=3)
+        idx2 = self.canvas.create_line(*(loc+5*ext2), *(loc-5*ext2), fill=color, width=3)
+        return [idx1, idx2]
+
     def draw(self,color=None):
         self.erase()
         loc = self.loc
         ext1, ext2, ext3, ext4 = np.ones(2), np.array([-1, 1]), np.array([1, 0]), np.array([0, 1])
         text_label = self.shortcuts[self.t]
-        if self.t == 'g' or self.t == 'v':
+        if self.t in ['g','v']:
             color = 'blue' if color is None else color
             M = self.rot45(self.angle)
             ext1, ext2, ext3, ext4 = M @ ext1, M @ ext2, M @ ext3, M @ ext4
             off = loc+10*ext4
             idx1 = self.canvas.create_line(*loc, *off, fill=color, width=3)
-            idx2 = self.canvas.create_line(*(off+5*ext1), *(off-5*ext1), fill=color, width=3)
-            idx3 = self.canvas.create_line(*(off+5*ext2), *(off-5*ext2), fill=color, width=3)
+            idx2, idx3 = self.draw_x(off,color)
             idx4 = self.canvas.create_text(*(off+20*ext4), text=text_label,fill=color, font=('Helvetica 15'))
             self.drawing = [idx1, idx2, idx3, idx4]
-        else:
+        if self.t == 'a':
             color = 'black' if color is None else color
-            idx1 = self.canvas.create_line(*(loc+5*ext1), *(loc-5*ext1), fill=color, width=3)
-            idx2 = self.canvas.create_line(*(loc+5*ext2), *(loc-5*ext2), fill=color, width=3)
-            shift = np.array([-1.25, 0.5]) * 40
-            idx3 = self.canvas.create_rectangle(*(loc+shift-10*ext3), *(loc-shift-10*ext3), outline=color, width=3)
+            idx1, idx2 = self.draw_x(loc, color)
+            shift = np.array([0.625,0.25])
+            idx3 = self.canvas.create_rectangle(*(loc-40*shift+40*0.625*ext3), *(loc+40*shift+40*0.625*ext3), outline=color, width=3)
             idx4 = self.canvas.create_text(*(loc+20*ext1), text=text_label, fill=color, font=('Helvetica 15'))
             # TODO: make it look like an element at least. Add the nodes for the op amp
             self.drawing = [idx1, idx2, idx3, idx4] #TODO: also... can I not use eval? it seemed to be bugging out.
+        if self.t in ['n','p','N','P']:
+            M = self.rot45(self.angle)
+            ext1, ext2, ext3, ext4 = M @ ext1, M @ ext2, M @ ext3, M @ ext4
+            color = 'black' if color is None else color
+            idx1, idx2 = self.draw_x(loc, color)
+            shift = np.array([0.5, 0.5]) * 40
+            idx3 = self.canvas.create_line(*(loc+20*ext1), *(loc-20*ext2),fill=color, width=3)
+            idx4 = self.canvas.create_line(*(loc+20*ext3), *(loc-20*ext3),fill=color, width=3)
+            idx5 = self.canvas.create_text(*(loc+20*ext1), text=text_label, fill=color, font=('Helvetica 15'))
+            self.drawing = [idx1, idx2, idx3, idx4, idx5]
 
     latex_str = {'g':'ground',
-                 'a':'op amp,scale=1.02',
-                 'v':''}
+                 'a':'op amp',
+                 'v':'',
+                 'n':'npn',
+                 'p':'pnp',
+                 'N':'nmos',
+                 'P':'pmos,emptycircle'}
 
     anchor_str = ['north', 'north east', 'east','south east' , 'south', 'south west', 'west']
 
-    # Normal op amp coordinates are:
-    # If you place op amp at (0, 0)
-    # output at (1.19, 0)
-    # terminals at: (-1.19, +/-0.49)
-    # scale up to 1.02 which:
-    # output at (1.21, 0)
-    # terminals at: (-1.21, +/-0.5)
- 
     def str_latex(self, label_info):
-        coord = tuple(self.tf(self.loc/40))
+        coord = tuple(self.transform(self.loc/40))
         cktikz_str = self.latex_str[self.t]
         label_str = ''
         extra_str = ''
+
+        # ground
         if self.t == 'g':
             cktikz_str += f',rotate={-self.angle * 45}'
 
+        # node voltage label
         if self.t == 'v':
             cktikz_str += f'anchor={self.anchor_str[self.angle]}'
             label_str = '$V$'
 
+        # Normal op amp coordinates are:
+        # If you place op amp at (0, 0)
+        # output at (1.19, 0)
+        # terminals at: (-1.19, +/-0.49)
+        # I'm assuming with a scaledown factor of 0.51
+        # output: (0.61, 0)
+        # terminals: (-0.61, +/-0.25)
+
+        # amplifier: drawn for a scale down factor of 0.51 in cktikz
         if self.t == 'a':
-            loc = self.tf(self.loc/40)-np.array([0.25, 0])
+            loc = self.transform(self.loc/40)+np.array([0.61, 0])
+            coord = tuple(np.round(loc,2))
+            to_edge = np.array([0.03, 0])
+            out = loc + np.array([0.61,0])
+            extra_str+= f'{tuple(np.round(out, 2))} to[short] {tuple(np.round(out+to_edge,2))}'
+
+        # transistors: drawn for a scale down factor of 0.65 in cktikz
+        if self.t in ['n','p','N','P']:
+            cktikz_str += f',rotate={-self.angle * 45}'
+            M = self.rot45(-self.angle)
+            loc = self.transform(self.loc/40) + M@np.array([0.5,0])
             coord = tuple(loc)
-            minus = loc + np.array([-1.21, 0.5])
-            to_edge = np.array([0.04, 0])
-            plus = loc + np.array([-1.21, -0.5])
-            out = loc + np.array([1.21,0])
-            extra_str= f'{tuple(minus)} to[short] {tuple(minus-to_edge)}'
-            extra_str+= f'{tuple(plus)} to[short] {tuple(plus-to_edge)}'
-            extra_str+= f'{tuple(out)} to[short] {tuple(out+to_edge)}'
+            # default BJT
+            control = loc + M@np.array([-0.55,0])
+            to_edge = M@np.array([0.45, 0])
+            if self.t.isupper():
+                # MOSFET
+                delta = M@np.array([-0.09, 0])
+                control += delta;
+                to_edge += delta;
+            extra_str = f'{tuple(control)} to[short] {tuple(control-to_edge)}';
 
         return f'\\draw{coord} node[{cktikz_str}]{{{label_str}}}{extra_str};'
 

@@ -10,10 +10,12 @@ from shapes import *
 
 class Sketchpad(Canvas):
     special = {'m':'move',
-               'd':'delete',
+               'D':'delete',
                'L':'label',
                'R':'rotate',
-               'P':'print'}
+               ' ':'print',
+               'X':'flipX',
+               'Y':'flipY'}
 
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
@@ -34,21 +36,27 @@ class Sketchpad(Canvas):
         if key_input in self.special:
             self.state = self.special[key_input]
             self.rotate()
+            self.flip()
+            self.print_latex()
         elif key_input in element.shortcuts or key_input in node.shortcuts:
             self.state = key_input
-        else:
-            self.print_latex()
-            self.state = ' '
 
     def print_latex(self):
-        print('\\begin{center}')
-        print('\\begin{circuitikz}')
-        for shape in self.shapes.values():
-            if not isinstance(shape, handle):
-                print(shape.str_latex(None))
-        print('\\end{circuitikz}')
-        print('\\end{center}')
-        print()
+        if self.state =='print':
+            print('\\begin{center}')
+            print('\\begin{circuitikz}')
+            for shape in self.shapes.values():
+                if not isinstance(shape, handle):
+                    print(shape.str_latex(None))
+            print('\\end{circuitikz}')
+            print('\\end{center}')
+            print()
+
+    def flip(self):
+        if self.state in ['flipX', 'flipY']:
+            inrange_shape = self.shape_to_highlight
+            if isinstance(inrange_shape, node):
+                inrange_shape.flip(self.state[-1])
 
     def rotate(self):
         if self.state == 'rotate':
@@ -61,9 +69,9 @@ class Sketchpad(Canvas):
         cursor.draw()
         self.highlight_closest(self.grid_point(event))
 
-    def grid_point(self, event):
+    def grid_point(self, event, grid_spacing=10):
         pt = np.array([event.x, event.y])
-        snap = np.round(pt/20)*20
+        snap = np.round(pt/grid_spacing)*grid_spacing
         return snap
 
     def get_cursor(self, event):
