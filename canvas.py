@@ -88,7 +88,7 @@ class Sketchpad(Canvas):
         return cursor
 
     def closest_editable_shape(self, pt, thresh=29):
-        distance, closest, new_distance = np.infty, None, np.infty
+        distance, closest, new_distance = np.inf, None, np.inf
         for name, shape in self.shapes.items():
             if isinstance(shape, node):
                 new_distance = np.linalg.norm(pt - shape.loc)

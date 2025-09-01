@@ -70,8 +70,8 @@ class element(shape):
                  'o':'v=$$',
                  'd':''}
     def str_latex(self,label_info):
-        start_coord = tuple(self.transform(self.st/40))
-        end_coord = tuple(self.transform(self.ed/40))
+        start_coord = tuple([float(a) for a in self.transform(self.st/40)])
+        end_coord = tuple([float(a) for a in self.transform(self.ed/40)])
         label_str = self.label_str[self.t]
         cktikz_str = self.latex_str[self.t]
         return f'\\draw{start_coord} to[{cktikz_str},{label_str}] {end_coord};'
@@ -169,7 +169,7 @@ class node(shape):
     anchor_str = ['north', 'north east', 'east','south east' , 'south', 'south west', 'west']
 
     def str_latex(self, label_info):
-        coord = tuple(self.transform(self.loc/40))
+        coord = tuple([float(a) for a in self.transform(self.loc/40)])
         cktikz_str = self.latex_str[self.t]
         label_str = ''
         extra_str = ''
@@ -194,17 +194,19 @@ class node(shape):
         # amplifier: drawn for a scale down factor of 0.51 in cktikz
         if self.t == 'a':
             loc = self.transform(self.loc/40)+np.array([0.61, 0])
-            coord = tuple(np.round(loc,2))
+            coord = tuple([float(a) for a in np.round(loc,2)])
             to_edge = np.array([0.03, 0])
             out = loc + np.array([0.61,0])
-            extra_str+= f'{tuple(np.round(out, 2))} to[short] {tuple(np.round(out+to_edge,2))}'
+            amp_wire_start_loc = tuple([float(a) for a in np.round(out, 2)])
+            amp_wire_end_loc = tuple([float(a) for a in np.round(out+to_edge,2)])
+            extra_str+= f'{amp_wire_start_loc} to[short] {amp_wire_end_loc}'
 
         # transistors: drawn for a scale down factor of 0.65 in cktikz
         if self.t in ['n','p','N','P']:
             cktikz_str += f',rotate={-self.angle * 45}'
             M = self.rot45(-self.angle)
             loc = self.transform(self.loc/40) + M@np.array([0.5,0])
-            coord = tuple(loc)
+            coord = tuple([float(a) for a in loc])
             # default BJT
             control = loc + M@np.array([-0.55,0])
             to_edge = M@np.array([0.45, 0])
@@ -213,7 +215,7 @@ class node(shape):
                 delta = M@np.array([-0.09, 0])
                 control += delta;
                 to_edge += delta;
-            extra_str = f'{tuple(control)} to[short] {tuple(control-to_edge)}';
+            extra_str = f'{tuple([float(a) for a in control])} to[short] {tuple([float(a) for a in control-to_edge])}';
 
         return f'\\draw{coord} node[{cktikz_str}]{{{label_str}}}{extra_str};'
 
